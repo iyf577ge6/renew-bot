@@ -34,6 +34,9 @@ MARZBAN_ADDRESS = os.getenv("MARZBAN_ADDRESS", "https://panel.com/")
 MARZBAN_USERNAME = os.getenv("MARZBAN_USERNAME", "sudo_username")
 MARZBAN_PASSWORD = os.getenv("MARZBAN_PASSWORD", "sudo_password")
 
+# وضعیت فعال بودن ربات (on/off)
+BOT_STATUS = os.getenv("BOT_STATUS", "on").lower() in ("on", "1", "true")
+
 IR_TZ = pytz.timezone("Asia/Tehran")
 DB_PATH = "/var/lib/marzban/renew-tg-bot/bot.db"
 
@@ -223,6 +226,11 @@ def sync_admin_profile_if_needed(user: types.User):
     tid = user.id
     if is_admin(tid):
         upsert_admin_profile(tid, user.username or "", user.full_name or "")
+
+# ---------------- فیلتر دسترسی ----------------
+@dp.message_handler(lambda msg: not is_admin(msg.from_user.id) and not is_superadmin(msg.from_user.id), content_types=types.ContentTypes.ANY)
+async def ignore_unauthorized(m: types.Message):
+    return
 
 # ---------------- دستورات عمومی ----------------
 @dp.message_handler(commands=['whoami'])
@@ -556,8 +564,11 @@ async def admins_list(m: types.Message):
 # ---------------- اجرا ----------------
 if __name__ == "__main__":
     init_db()
-    try:
-        executor.start_polling(dp, skip_updates=True)
-    finally:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(svc.close())
+    if not BOT_STATUS:
+        print("Bot status is off. Exiting.")
+    else:
+        try:
+            executor.start_polling(dp, skip_updates=True)
+        finally:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(svc.close())
