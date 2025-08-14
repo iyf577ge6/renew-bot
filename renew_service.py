@@ -1,4 +1,5 @@
 import aiohttp
+from urllib.parse import quote
 
 
 class MarzbanRenewService:
@@ -21,7 +22,11 @@ class MarzbanRenewService:
         outcome so that ``bot.py`` can act on the response.  Any unexpected
         error is caught and converted into ``ok=False`` with the error message.
         """
-        url = f"{self._base}/api/users/{username}/renew"
+        # The Marzban API uses the singular form ``user`` in the renewal endpoint.
+        # Using ``users`` causes a 404 with ``{"detail": "Not Found"}`` even when
+        # the username exists.
+        username_enc = quote(username, safe="")
+        url = f"{self._base}/api/user/{username_enc}/renew"
         payload = {"duration": 31}
         try:
             async with self._session.post(url, json=payload) as resp:

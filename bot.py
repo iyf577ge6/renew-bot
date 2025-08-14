@@ -167,6 +167,7 @@ def admin_kb(is_super: bool) -> ReplyKeyboardMarkup:
         kb.row(KeyboardButton("➕ شارژ اعتبار"), KeyboardButton("🔁 تمدید برای مشتری"))
         kb.row(KeyboardButton("🔎 اعتبار مشتری"), KeyboardButton("👑 مدیریت ادمین‌ها"))
         kb.add(KeyboardButton("👥 لیست ادمین‌ها"))
+        kb.add(KeyboardButton("👥 لیست مشتری‌ها"))
     else:
         # ادمین معمولی فقط عملیات‌های مرتبط با تمدید را می‌بیند
         kb.row(KeyboardButton("🔁 تمدید برای مشتری"), KeyboardButton("🔎 اعتبار مشتری"))
@@ -575,6 +576,21 @@ async def admins_list(m: types.Message):
         name = f" - {fname}" if fname else ""
         lines.append(f"• {tid}  {tag}{name}")
     await m.reply("لیست ادمین‌ها:\n" + "\n".join(lines))
+
+# ---- لیست مشتری‌ها (فقط سوپرادمین)
+@dp.message_handler(lambda msg: msg.text == "👥 لیست مشتری‌ها")
+async def customers_list(m: types.Message):
+    sync_admin_profile_if_needed(m.from_user)
+    if not is_superadmin(m.from_user.id):
+        return await m.reply("فقط سوپرادمین.")
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        rows = conn.execute(
+            "SELECT telegram_id, credits FROM customers ORDER BY telegram_id"
+        ).fetchall()
+    if not rows:
+        return await m.reply("هیچ مشتری‌ای در سیستم ثبت نشده است.")
+    lines = [f"• {tid} - اعتبار: {credits}" for tid, credits in rows]
+    await m.reply("لیست مشتری‌ها:\n" + "\n".join(lines))
 
 # ---------------- اجرا ----------------
 if __name__ == "__main__":
