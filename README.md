@@ -16,6 +16,9 @@ cd renew-bot
 - Python 3.10 or newer
 - `python3-venv` to create virtual environments (e.g. `sudo apt install python3-venv`)
 - `git` (if cloning the repository)
+- `pip install aiogram==2.25.2
+pip install jdatetime
+pip install dotenv`
 
 ## Installation
 
