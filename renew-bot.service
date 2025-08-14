@@ -7,9 +7,9 @@ Type=simple
 # User that will run the bot. Adjust if you do not want to run as root.
 User=root
 # Working directory where bot.py and the .env file reside
-WorkingDirectory=/opt/renew-bot
+WorkingDirectory=/root/renew-bot
 # Run the bot using the virtual environment's python
-ExecStart=/opt/renew-bot/venv/bin/python bot.py
+ExecStart=python3 bot.py
 Restart=always
 RestartSec=5
 
