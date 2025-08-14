@@ -64,3 +64,28 @@ Only Telegram IDs configured as admins or those already registered as customers 
 | `MARZBAN_USERNAME` | Marzban sudo username |
 | `MARZBAN_PASSWORD` | Marzban sudo password |
 | `BOT_STATUS` | `on` to run the bot, `off` to exit immediately |
+
+## Run with systemd
+
+A sample unit file `renew-bot.service` is provided to run the bot as a
+service. Adjust the `User`, `WorkingDirectory` and `ExecStart` paths as
+needed, then install and enable it:
+
+```bash
+sudo cp renew-bot.service /etc/systemd/system/renew-bot.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now renew-bot
+```
+
+Useful commands to manage the service:
+
+```bash
+sudo systemctl status renew-bot   # view status
+sudo systemctl stop renew-bot     # stop the bot
+sudo systemctl start renew-bot    # start the bot
+sudo systemctl restart renew-bot  # restart the bot
+```
+
+`Restart=always` in the unit file ensures the bot is restarted if it
+exits unexpectedly, and enabling the service makes it start automatically
+after reboots.
