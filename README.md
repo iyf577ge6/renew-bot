@@ -48,7 +48,6 @@ bash install.sh uninstall
 2. Start the bot:
 
 ```bash
-source venv/bin/activate
 python3 bot.py
 ```
 
