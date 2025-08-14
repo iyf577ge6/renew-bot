@@ -18,24 +18,52 @@ fi
 if [ "$CONFIGURE" = true ]; then
   [ -f "$ENV_FILE" ] && source "$ENV_FILE"
 
-  read -p "Bot token [${TELEGRAM_TOKEN:-}]: " input
-  TELEGRAM_TOKEN=${input:-$TELEGRAM_TOKEN}
+  while true; do
+    read -p "Bot token [${TELEGRAM_TOKEN:-}]: " input
+    TELEGRAM_TOKEN=${input:-$TELEGRAM_TOKEN}
+    [ -n "$TELEGRAM_TOKEN" ] && break
+    echo "Bot token cannot be blank."
+  done
 
-  read -p "Superadmin ID(s) (comma separated) [${SUPERADMIN_IDS:-}]: " input
-  SUPERADMIN_IDS=${input:-$SUPERADMIN_IDS}
+  while true; do
+    read -p "Superadmin ID(s) (comma separated) [${SUPERADMIN_IDS:-}]: " input
+    SUPERADMIN_IDS=${input:-$SUPERADMIN_IDS}
+    [ -n "$SUPERADMIN_IDS" ] && break
+    echo "Superadmin ID(s) cannot be blank."
+  done
 
-  read -p "Panel address [${MARZBAN_ADDRESS:-}]: " input
-  MARZBAN_ADDRESS=${input:-$MARZBAN_ADDRESS}
+  while true; do
+    read -p "Panel address [${MARZBAN_ADDRESS:-}]: " input
+    MARZBAN_ADDRESS=${input:-$MARZBAN_ADDRESS}
+    [ -n "$MARZBAN_ADDRESS" ] && break
+    echo "Panel address cannot be blank."
+  done
 
-  read -p "Sudo username [${MARZBAN_USERNAME:-}]: " input
-  MARZBAN_USERNAME=${input:-$MARZBAN_USERNAME}
+  while true; do
+    read -p "Sudo username [${MARZBAN_USERNAME:-}]: " input
+    MARZBAN_USERNAME=${input:-$MARZBAN_USERNAME}
+    [ -n "$MARZBAN_USERNAME" ] && break
+    echo "Sudo username cannot be blank."
+  done
 
-  read -s -p "Sudo password [${MARZBAN_PASSWORD:+***}]: " input
-  echo
-  MARZBAN_PASSWORD=${input:-$MARZBAN_PASSWORD}
+  while true; do
+    read -s -p "Sudo password [${MARZBAN_PASSWORD:+***}]: " input
+    echo
+    MARZBAN_PASSWORD=${input:-$MARZBAN_PASSWORD}
+    [ -n "$MARZBAN_PASSWORD" ] && break
+    echo "Sudo password cannot be blank."
+  done
 
-  read -p "Bot status (on/off) [${BOT_STATUS:-on}]: " input
-  BOT_STATUS=${input:-${BOT_STATUS:-on}}
+  while true; do
+    read -p "Bot status (on/off) [${BOT_STATUS:-on}]: " input
+    BOT_STATUS=${input:-${BOT_STATUS:-on}}
+    BOT_STATUS=${BOT_STATUS,,}
+    [ -z "$BOT_STATUS" ] && BOT_STATUS="on"
+    if [[ "$BOT_STATUS" == "on" || "$BOT_STATUS" == "off" ]]; then
+      break
+    fi
+    echo "Enter 'on' or 'off'."
+  done
 
   cat > "$ENV_FILE" <<EOT
 TELEGRAM_TOKEN=$TELEGRAM_TOKEN
