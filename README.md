@@ -37,7 +37,7 @@ Telegram bot for Marzban renewals.
    python bot.py
    ```
 
-Only Telegram IDs configured as admins can interact with the bot; everyone else is ignored. The super admin is the only role allowed to add balance to other admins.
+Only Telegram IDs configured as admins or those already registered as customers can interact with the bot. Others are ignored and not stored. The super admin is the only role allowed to add balance to other admins.
 
 ## Environment variables
 

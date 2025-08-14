@@ -60,6 +60,11 @@ def is_admin_db(tid: int) -> bool:
 def is_admin(tid: int) -> bool:
     return is_superadmin(tid) or is_admin_db(tid)
 
+def is_customer(tid: int) -> bool:
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        row = conn.execute("SELECT 1 FROM customers WHERE telegram_id=?", (tid,)).fetchone()
+        return row is not None
+
 # ---------------- دیتابیس ----------------
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -144,7 +149,6 @@ def set_credits(tid: int, amount: int):
         conn.execute("UPDATE customers SET credits = ? WHERE telegram_id=?", (amount, tid))
 
 def get_credits(tid: int) -> int:
-    ensure_customer(tid)
     with closing(sqlite3.connect(DB_PATH)) as conn:
         row = conn.execute("SELECT credits FROM customers WHERE telegram_id=?", (tid,)).fetchone()
         return int(row[0]) if row else 0
@@ -252,16 +256,26 @@ async def notify_admins(text: str):
 
 def sync_admin_profile_if_needed(user: types.User):
     tid = user.id
-    ensure_customer(tid, user.username or "", user.full_name or "")
+    if is_admin(tid) or is_customer(tid):
+        ensure_customer(tid, user.username or "", user.full_name or "")
     if is_admin(tid):
         upsert_admin_profile(tid, user.username or "", user.full_name or "")
+
+@dp.message_handler(
+    lambda msg: not (is_admin(msg.from_user.id) or is_customer(msg.from_user.id)),
+    content_types=types.ContentTypes.ANY,
+)
+async def ignore_unknown(m: types.Message):
+    pass
 
 # ---------------- فیلتر دسترسی ----------------
 # برای کاربران معمولی که هیچ اعتباری ندارند پاسخی ارسال می‌کنیم
 # تا بدانند چرا بات به پیامشان جواب نمی‌دهد. سوپرادمین‌ها از این
 # فیلتر مستثنا هستند تا همیشه دسترسی کامل داشته باشند.
 @dp.message_handler(
-    lambda msg: not is_superadmin(msg.from_user.id) and get_credits(msg.from_user.id) <= 0,
+    lambda msg: not is_superadmin(msg.from_user.id)
+    and is_customer(msg.from_user.id)
+    and get_credits(msg.from_user.id) <= 0,
     content_types=types.ContentTypes.ANY,
 )
 async def no_credit_reply(m: types.Message):
