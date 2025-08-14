@@ -69,8 +69,11 @@ def init_db():
         c.execute("PRAGMA synchronous=NORMAL;")
 
         c.execute("CREATE TABLE IF NOT EXISTS admins (telegram_id INTEGER PRIMARY KEY)")
-        c.execute("CREATE TABLE IF NOT EXISTS customers (telegram_id INTEGER PRIMARY KEY, credits INTEGER NOT NULL DEFAULT 0)")
-        c.execute("""CREATE TABLE IF NOT EXISTS logs (
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS customers (telegram_id INTEGER PRIMARY KEY, credits INTEGER NOT NULL DEFAULT 0, username TEXT, full_name TEXT)"
+        )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ts_utc TEXT NOT NULL,
             actor_id INTEGER NOT NULL,
@@ -78,7 +81,8 @@ def init_db():
             target_marzban_username TEXT,
             success INTEGER NOT NULL,
             message TEXT
-        )""")
+        )"""
+        )
         # مهاجرت جدول admins برای افزودن username و full_name (اگر قبلاً نبوده)
         try:
             c.execute("ALTER TABLE admins ADD COLUMN username TEXT")
@@ -86,6 +90,16 @@ def init_db():
             pass
         try:
             c.execute("ALTER TABLE admins ADD COLUMN full_name TEXT")
+        except Exception:
+            pass
+
+        # مهاجرت جدول customers برای افزودن username و full_name (اگر قبلاً نبوده)
+        try:
+            c.execute("ALTER TABLE customers ADD COLUMN username TEXT")
+        except Exception:
+            pass
+        try:
+            c.execute("ALTER TABLE customers ADD COLUMN full_name TEXT")
         except Exception:
             pass
 
@@ -110,9 +124,14 @@ def remove_admin(tid: int):
     with closing(sqlite3.connect(DB_PATH)) as conn, conn:
         conn.execute("DELETE FROM admins WHERE telegram_id=?", (tid,))
 
-def ensure_customer(tid: int):
+def ensure_customer(tid: int, username: str | None = None, full_name: str | None = None):
     with closing(sqlite3.connect(DB_PATH)) as conn, conn:
         conn.execute("INSERT OR IGNORE INTO customers (telegram_id, credits) VALUES (?, 0)", (tid,))
+        if username is not None or full_name is not None:
+            conn.execute(
+                "UPDATE customers SET username = COALESCE(?, username), full_name = COALESCE(?, full_name) WHERE telegram_id=?",
+                (username, full_name, tid),
+            )
 
 def add_credits(tid: int, amount: int):
     ensure_customer(tid)
@@ -233,6 +252,7 @@ async def notify_admins(text: str):
 
 def sync_admin_profile_if_needed(user: types.User):
     tid = user.id
+    ensure_customer(tid, user.username or "", user.full_name or "")
     if is_admin(tid):
         upsert_admin_profile(tid, user.username or "", user.full_name or "")
 
@@ -245,7 +265,7 @@ def sync_admin_profile_if_needed(user: types.User):
     content_types=types.ContentTypes.ANY,
 )
 async def no_credit_reply(m: types.Message):
-    ensure_customer(m.from_user.id)
+    sync_admin_profile_if_needed(m.from_user)
     await m.reply("اعتباری برای شما باقی نمانده است")
 
 # ---------------- دستورات عمومی ----------------
@@ -258,7 +278,6 @@ async def whoami(m: types.Message):
 @dp.message_handler(commands=['start'])
 async def start(m: types.Message, state: FSMContext):
     await state.finish()
-    ensure_customer(m.from_user.id)
     sync_admin_profile_if_needed(m.from_user)
     await m.reply(
         "سلام! به ربات تمدید خوش آمدید.",
@@ -585,11 +604,15 @@ async def customers_list(m: types.Message):
         return await m.reply("فقط سوپرادمین.")
     with closing(sqlite3.connect(DB_PATH)) as conn:
         rows = conn.execute(
-            "SELECT telegram_id, credits FROM customers ORDER BY telegram_id"
+            "SELECT telegram_id, COALESCE(username,''), COALESCE(full_name,''), credits FROM customers ORDER BY telegram_id"
         ).fetchall()
     if not rows:
         return await m.reply("هیچ مشتری‌ای در سیستم ثبت نشده است.")
-    lines = [f"• {tid} - اعتبار: {credits}" for tid, credits in rows]
+    lines = []
+    for tid, uname, fname, credits in rows:
+        tag = f"@{uname}" if uname else "(بدون یوزرنیم)"
+        name = f" - {fname}" if fname else ""
+        lines.append(f"• {tid}  {tag}{name} - اعتبار: {credits}")
     await m.reply("لیست مشتری‌ها:\n" + "\n".join(lines))
 
 # ---------------- اجرا ----------------
