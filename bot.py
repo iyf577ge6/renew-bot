@@ -236,9 +236,16 @@ def sync_admin_profile_if_needed(user: types.User):
         upsert_admin_profile(tid, user.username or "", user.full_name or "")
 
 # ---------------- فیلتر دسترسی ----------------
-@dp.message_handler(lambda msg: not is_admin(msg.from_user.id) and not is_superadmin(msg.from_user.id), content_types=types.ContentTypes.ANY)
-async def ignore_unauthorized(m: types.Message):
-    return
+# برای کاربران معمولی که هیچ اعتباری ندارند پاسخی ارسال می‌کنیم
+# تا بدانند چرا بات به پیامشان جواب نمی‌دهد. سوپرادمین‌ها از این
+# فیلتر مستثنا هستند تا همیشه دسترسی کامل داشته باشند.
+@dp.message_handler(
+    lambda msg: not is_superadmin(msg.from_user.id) and get_credits(msg.from_user.id) <= 0,
+    content_types=types.ContentTypes.ANY,
+)
+async def no_credit_reply(m: types.Message):
+    ensure_customer(m.from_user.id)
+    await m.reply("اعتباری برای شما باقی نمانده است")
 
 # ---------------- دستورات عمومی ----------------
 @dp.message_handler(commands=['whoami'])
@@ -288,7 +295,7 @@ async def renew_btn(m: types.Message, state: FSMContext):
     sync_admin_profile_if_needed(m.from_user)
     cr = get_credits(m.from_user.id)
     if cr <= 0:
-        return await m.reply("تمدیدی برای شما باقی نمانده است.")
+        return await m.reply("اعتباری برای شما باقی نمانده است")
     await RenewFlow.ask_username.set()
     await m.reply("نام کاربری را ارسال کن:", reply_markup=cancel_kb())
 
