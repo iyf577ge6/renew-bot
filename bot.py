@@ -148,6 +148,10 @@ def set_credits(tid: int, amount: int):
     with closing(sqlite3.connect(DB_PATH)) as conn, conn:
         conn.execute("UPDATE customers SET credits = ? WHERE telegram_id=?", (amount, tid))
 
+def remove_customer(tid: int):
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+        conn.execute("DELETE FROM customers WHERE telegram_id=?", (tid,))
+
 def get_credits(tid: int) -> int:
     with closing(sqlite3.connect(DB_PATH)) as conn:
         row = conn.execute("SELECT credits FROM customers WHERE telegram_id=?", (tid,)).fetchone()
@@ -176,21 +180,20 @@ def jalali_now_str() -> str:
 # ---------------- کیبوردها ----------------
 def main_kb(is_admin_user: bool, is_super: bool) -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("🔁 تمدید کاربر"))
-    kb.add(KeyboardButton("💳 اعتبار من"))
+    kb.row(KeyboardButton("🔁 تمدید کاربر"), KeyboardButton("💳 اعتبار من"))
     if is_admin_user:
-        kb.add(KeyboardButton("🛠 پنل ادمین"))
-    kb.add(KeyboardButton("ℹ️ راهنما"))
+        kb.row(KeyboardButton("🛠 پنل ادمین"), KeyboardButton("ℹ️ راهنما"))
+    else:
+        kb.add(KeyboardButton("ℹ️ راهنما"))
     return kb
 
 def admin_kb(is_super: bool) -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     if is_super:
-        kb.row(KeyboardButton("➕ افزودن مشتری"), KeyboardButton("📌 تنظیم اعتبار"))
+        kb.row(KeyboardButton("👥 مدیریت مشتری‌ها"), KeyboardButton("📌 تنظیم اعتبار"))
         kb.row(KeyboardButton("➕ شارژ اعتبار"), KeyboardButton("🔁 تمدید برای مشتری"))
         kb.row(KeyboardButton("🔎 اعتبار مشتری"), KeyboardButton("👑 مدیریت ادمین‌ها"))
-        kb.add(KeyboardButton("👥 لیست ادمین‌ها"))
-        kb.add(KeyboardButton("👥 لیست مشتری‌ها"))
+        kb.row(KeyboardButton("👥 لیست ادمین‌ها"), KeyboardButton("👥 لیست مشتری‌ها"))
     else:
         # ادمین معمولی فقط عملیات‌های مرتبط با تمدید را می‌بیند
         kb.row(KeyboardButton("🔁 تمدید برای مشتری"), KeyboardButton("🔎 اعتبار مشتری"))
@@ -199,8 +202,14 @@ def admin_kb(is_super: bool) -> ReplyKeyboardMarkup:
 
 def admins_manage_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("➕ افزودن ادمین"), KeyboardButton("➖ حذف ادمین"))
-    kb.add(KeyboardButton("⬅️ بازگشت به پنل ادمین"))
+    kb.row(KeyboardButton("➕ افزودن ادمین"), KeyboardButton("➖ حذف ادمین"))
+    kb.add(KeyboardButton("⬅️ بازگشت"))
+    return kb
+
+def customers_manage_kb() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.row(KeyboardButton("➕ افزودن مشتری"), KeyboardButton("➖ حذف مشتری"))
+    kb.add(KeyboardButton("⬅️ بازگشت"))
     return kb
 
 def cancel_kb() -> ReplyKeyboardMarkup:
@@ -213,6 +222,9 @@ class RenewFlow(StatesGroup):
     ask_username = State()
 
 class AdminAddCustomerFlow(StatesGroup):
+    ask_tid = State()
+
+class AdminRmCustomerFlow(StatesGroup):
     ask_tid = State()
 
 class AdminSetCreditsFlow(StatesGroup):
@@ -399,6 +411,14 @@ async def back_to_main(m: types.Message, state: FSMContext):
         reply_markup=main_kb(is_admin(m.from_user.id), is_superadmin(m.from_user.id))
     )
 
+# ---- مدیریت مشتری‌ها (فقط سوپرادمین)
+@dp.message_handler(lambda msg: msg.text == "👥 مدیریت مشتری‌ها")
+async def customers_manage(m: types.Message, state: FSMContext):
+    sync_admin_profile_if_needed(m.from_user)
+    if not is_superadmin(m.from_user.id):
+        return await m.reply("فقط سوپرادمین.")
+    await m.reply("مدیریت مشتری‌ها:", reply_markup=customers_manage_kb())
+
 # ---- افزودن مشتری (فقط سوپرادمین)
 @dp.message_handler(lambda msg: msg.text == "➕ افزودن مشتری")
 async def admin_add_customer(m: types.Message, state: FSMContext):
@@ -417,7 +437,28 @@ async def admin_add_customer_tid(m: types.Message, state: FSMContext):
         return await m.reply("یک آیدی عددی معتبر بفرست.", reply_markup=cancel_kb())
     tid = int(m.text.strip())
     ensure_customer(tid)
-    await m.reply(f"مشتری {tid} اضافه شد.", reply_markup=admin_kb(is_superadmin(m.from_user.id)))
+    await m.reply(f"مشتری {tid} اضافه شد.", reply_markup=customers_manage_kb())
+    await state.finish()
+
+# ---- حذف مشتری (فقط سوپرادمین)
+@dp.message_handler(lambda msg: msg.text == "➖ حذف مشتری")
+async def customers_rm_btn(m: types.Message, state: FSMContext):
+    sync_admin_profile_if_needed(m.from_user)
+    if not is_superadmin(m.from_user.id):
+        return await m.reply("فقط سوپرادمین.")
+    await AdminRmCustomerFlow.ask_tid.set()
+    await m.reply("آیدی عددی مشتری که باید حذف شود را بفرست:", reply_markup=cancel_kb())
+
+@dp.message_handler(state=AdminRmCustomerFlow.ask_tid)
+async def customers_rm_tid(m: types.Message, state: FSMContext):
+    sync_admin_profile_if_needed(m.from_user)
+    if (m.text or "") == "⬅️ انصراف":
+        return
+    if not (m.text or "").isdigit():
+        return await m.reply("یک آیدی عددی معتبر بفرست.", reply_markup=cancel_kb())
+    tid = int(m.text.strip())
+    remove_customer(tid)
+    await m.reply(f"مشتری {tid} حذف شد.", reply_markup=customers_manage_kb())
     await state.finish()
 
 # ---- تنظیم اعتبار (فقط سوپرادمین)
