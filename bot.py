@@ -17,9 +17,15 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
 from renew_service import MarzbanRenewService
+from dotenv import load_dotenv
+
+# Load environment variables from a .env file if present
+load_dotenv()
 
 # ---------------- تنظیمات ----------------
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "PUT_TOKEN_HERE")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+if not TELEGRAM_TOKEN:
+    raise RuntimeError("TELEGRAM_TOKEN is not set in the environment")
 
 def _ids_from_env(key: str):
     raw = os.getenv(key, "").strip()
@@ -30,9 +36,11 @@ def _ids_from_env(key: str):
 SUPERADMINS = _ids_from_env("SUPERADMIN_IDS")  # اگر خالی باشد، بوت‌استرپ فعال است
 ADMINS = _ids_from_env("ADMIN_IDS")
 
-MARZBAN_ADDRESS = os.getenv("MARZBAN_ADDRESS", "https://panel.com/")
-MARZBAN_USERNAME = os.getenv("MARZBAN_USERNAME", "sudo_username")
-MARZBAN_PASSWORD = os.getenv("MARZBAN_PASSWORD", "sudo_password")
+MARZBAN_ADDRESS = os.getenv("MARZBAN_ADDRESS")
+MARZBAN_USERNAME = os.getenv("MARZBAN_USERNAME")
+MARZBAN_PASSWORD = os.getenv("MARZBAN_PASSWORD")
+if not all([MARZBAN_ADDRESS, MARZBAN_USERNAME, MARZBAN_PASSWORD]):
+    raise RuntimeError("Marzban credentials are not fully set in the environment")
 
 # وضعیت فعال بودن ربات (on/off)
 BOT_STATUS = os.getenv("BOT_STATUS", "on").lower() in ("on", "1", "true")
