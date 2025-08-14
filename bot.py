@@ -610,6 +610,14 @@ async def customers_list(m: types.Message):
         return await m.reply("هیچ مشتری‌ای در سیستم ثبت نشده است.")
     lines = []
     for tid, uname, fname, credits in rows:
+        if not uname or not fname:
+            try:
+                chat = await bot.get_chat(tid)
+                uname = uname or (chat.username or "")
+                fname = fname or (chat.full_name or "")
+                ensure_customer(tid, uname or "", fname or "")
+            except Exception:
+                pass
         tag = f"@{uname}" if uname else "(بدون یوزرنیم)"
         name = f" - {fname}" if fname else ""
         lines.append(f"• {tid}  {tag}{name} - اعتبار: {credits}")
