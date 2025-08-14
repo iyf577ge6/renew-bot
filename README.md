@@ -11,20 +11,11 @@ git clone https://github.com/your-username/renew-bot.git
 cd renew-bot
 ```
 
-Or download with curl:
-
-```bash
-curl -L -o renew-bot.tar.gz https://github.com/your-username/renew-bot/archive/refs/heads/main.tar.gz
-tar -xzf renew-bot.tar.gz
-cd renew-bot-main
-```
-
 ## Prerequisites
 
 - Python 3.10 or newer
 - `python3-venv` to create virtual environments (e.g. `sudo apt install python3-venv`)
 - `git` (if cloning the repository)
-- `curl` (if downloading via curl)
 
 ## Installation
 
