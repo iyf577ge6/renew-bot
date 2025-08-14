@@ -2,14 +2,19 @@
 
 Telegram bot for Marzban renewals.
 
+## Prerequisites
+
+- Python 3.10 or newer
+- `python3-venv` to create virtual environments (e.g. `sudo apt install python3-venv`)
+- `git` (if cloning the repository)
+
 ## Installation
 
-1. Ensure Python 3.10+ is installed.
-2. Run the install script and follow the prompts:
+1. Run the install script:
    ```bash
    bash install.sh
    ```
-   The script will ask for:
+   On first run it will ask for:
    - **Bot token**
    - **Super admin Telegram ID** (comma separated for multiple)
    - **Panel address**
@@ -17,8 +22,16 @@ Telegram bot for Marzban renewals.
    - **Sudo password**
    - **Bot status** (`on` or `off`)
 
-   The script creates a `.env` file, sets up a virtual environment and installs dependencies.
-3. Start the bot:
+   A `.env` file is created, a virtual environment is set up and dependencies are installed.
+   Subsequent runs reuse the existing `.env`.  To change values run:
+   ```bash
+   bash install.sh --configure
+   ```
+   To remove the virtual environment, configuration and database, run:
+   ```bash
+   bash install.sh uninstall
+   ```
+2. Start the bot:
    ```bash
    source venv/bin/activate
    python bot.py
