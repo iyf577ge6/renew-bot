@@ -7,7 +7,7 @@ Telegram bot for Marzban renewals.
 Clone with git:
 
 ```bash
-git clone https://github.com/your-username/renew-bot.git
+git clone https://github.com/iyf577ge6/renew-bot.git
 cd renew-bot
 ```
 
