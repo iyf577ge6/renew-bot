@@ -31,8 +31,9 @@ class MarzbanRenewService:
             await self.session.close()
 
     async def _auth_headers(self) -> Dict[str, str]:
+        """Return auth headers, fetching a new token if needed."""
         await self._ensure_session()
-        if not self._token:
+        if self._token is None:
             # گرفتن توکن ادمین با application/x-www-form-urlencoded
             url = f"{self.address}/api/admin/token"
             form = {"username": self.username, "password": self.password}
@@ -57,35 +58,51 @@ class MarzbanRenewService:
         return int(expires_at.timestamp())
 
     async def _get_user(self, username: str) -> Optional[Dict[str, Any]]:
-        headers = await self._auth_headers()
         url = f"{self.address}/api/user/{username}"
-        async with self.session.get(url, headers=headers) as r:
-            if r.status == 404:
-                return None
-            if r.status != 200:
-                text = await r.text()
-                raise RuntimeError(f"خطا در دریافت کاربر ({r.status}): {text}")
-            return await r.json()
+        for attempt in range(2):
+            headers = await self._auth_headers()
+            async with self.session.get(url, headers=headers) as r:
+                if r.status == 401 and attempt == 0:
+                    self._token = None
+                    continue
+                if r.status == 404:
+                    return None
+                if r.status != 200:
+                    text = await r.text()
+                    raise RuntimeError(f"خطا در دریافت کاربر ({r.status}): {text}")
+                return await r.json()
+        raise RuntimeError("خطا در دریافت کاربر پس از تلاش مجدد")
 
     async def _modify_user(self, username: str, **fields) -> Dict[str, Any]:
-        headers = await self._auth_headers()
         url = f"{self.address}/api/user/{username}"
-        async with self.session.put(url, headers=headers, json=fields) as r:
-            text = await r.text()
-            if r.status not in (200, 201):
-                raise RuntimeError(f"خطا در بروزرسانی کاربر ({r.status}): {text}")
-            try:
-                return await r.json()
-            except Exception:
-                return {"raw": text}
+        for attempt in range(2):
+            headers = await self._auth_headers()
+            async with self.session.put(url, headers=headers, json=fields) as r:
+                text = await r.text()
+                if r.status == 401 and attempt == 0:
+                    self._token = None
+                    continue
+                if r.status not in (200, 201):
+                    raise RuntimeError(f"خطا در بروزرسانی کاربر ({r.status}): {text}")
+                try:
+                    return await r.json()
+                except Exception:
+                    return {"raw": text}
+        raise RuntimeError("خطا در بروزرسانی کاربر پس از تلاش مجدد")
 
     async def _reset_usage(self, username: str) -> None:
-        headers = await self._auth_headers()
         url = f"{self.address}/api/user/{username}/reset"
-        async with self.session.post(url, headers=headers) as r:
-            if r.status not in (200, 204):
-                text = await r.text()
-                raise RuntimeError(f"خطا در ریست مصرف ({r.status}): {text}")
+        for attempt in range(2):
+            headers = await self._auth_headers()
+            async with self.session.post(url, headers=headers) as r:
+                if r.status == 401 and attempt == 0:
+                    self._token = None
+                    continue
+                if r.status not in (200, 204):
+                    text = await r.text()
+                    raise RuntimeError(f"خطا در ریست مصرف ({r.status}): {text}")
+                return
+        raise RuntimeError("خطا در ریست مصرف پس از تلاش مجدد")
 
     async def renew_user_31d(self, username: str) -> Dict[str, Any]:
         """
